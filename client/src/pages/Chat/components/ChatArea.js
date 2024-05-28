@@ -10,36 +10,40 @@ import store from "../../../redux/store";
 import EmojiPicker from "emoji-picker-react";
 
 function ChatArea({ socket }) {
-  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
-  const [isReceipentTyping, setIsReceipentTyping] = React.useState(false);
   const dispatch = useDispatch();
+  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const [isRecipientTyping, setIsRecipientTyping] = React.useState(false);
   const [newMessage, setNewMessage] = React.useState("");
   const { selectedChat, user, allChats } = useSelector((state) => state.users);
-  const [messages = [], setMessages] = React.useState([]);
+  const [messages, setMessages] = React.useState([]);
+
   const receipentUser = selectedChat.members.find(
     (mem) => mem._id !== user._id
   );
 
   const sendNewMessage = async (image) => {
     try {
-      const message = {
+      const createdAt = moment().format("DD-MM-YYYY hh:mm:ss"); // Get current time
+      const messageData = {
         chat: selectedChat._id,
         sender: user._id,
         text: newMessage,
         image,
+        createdAt, // Include createdAt in the message data
       };
       // send message to server using socket
       socket.emit("send-message", {
-        ...message,
+        ...messageData,
         members: selectedChat.members.map((mem) => mem._id),
-        createdAt: moment().format("DD-MM-YYYY hh:mm:ss"),
         read: false,
       });
-
+  
       // send message to server to save in db
-      const response = await SendMessage(message);
-
+      const response = await SendMessage(messageData);
+  
       if (response.success) {
+        // Update the time of the sent message in the local state
+        setMessages([...messages, { ...messageData, _id: response.data._id }]);
         setNewMessage("");
         setShowEmojiPicker(false);
       }
@@ -48,6 +52,8 @@ function ChatArea({ socket }) {
       message.error(error.message);
     }
   };
+  
+  
 
   const getMessages = async () => {
     try {
@@ -86,19 +92,14 @@ function ChatArea({ socket }) {
     }
   };
 
-  const getDateInRegualarFormat = (date) => {
+  const getDateInRegularFormat = (date) => {
     let result = "";
 
-    // if date is today return time in hh:mm format
     if (moment(date).isSame(moment(), "day")) {
       result = moment(date).format("hh:mm");
-    }
-    // if date is yesterday return yesterday and time in hh:mm format
-    else if (moment(date).isSame(moment().subtract(1, "day"), "day")) {
+    } else if (moment(date).isSame(moment().subtract(1, "day"), "day")) {
       result = `Yesterday ${moment(date).format("hh:mm")}`;
-    }
-    // if date is this year return date and time in MMM DD hh:mm format
-    else if (moment(date).isSame(moment(), "year")) {
+    } else if (moment(date).isSame(moment(), "year")) {
       result = moment(date).format("MMM DD hh:mm");
     }
 
@@ -111,8 +112,7 @@ function ChatArea({ socket }) {
       clearUnreadMessages();
     }
 
-    // receive message from server using socket
-    socket.on("receive-message", (message) => {
+    const handleReceiveMessage = (message) => {
       const tempSelectedChat = store.getState().users.selectedChat;
       if (tempSelectedChat._id === message.chat) {
         setMessages((messages) => [...messages, message]);
@@ -124,15 +124,15 @@ function ChatArea({ socket }) {
       ) {
         clearUnreadMessages();
       }
-    });
+    };
 
-    // clear unread messages from server using socket
-    socket.on("unread-messages-cleared", (data) => {
+    socket.on("receive-message", handleReceiveMessage);
+
+    const handleUnreadMessagesCleared = (data) => {
       const tempAllChats = store.getState().users.allChats;
       const tempSelectedChat = store.getState().users.selectedChat;
 
       if (data.chat === tempSelectedChat._id) {
-        // update unreadmessages count in selected chat
         const updatedChats = tempAllChats.map((chat) => {
           if (chat._id === data.chat) {
             return {
@@ -144,39 +144,44 @@ function ChatArea({ socket }) {
         });
         dispatch(SetAllChats(updatedChats));
 
-        // set all messages as read
-        setMessages((prevMessages) => {
-          return prevMessages.map((message) => {
-            return {
-              ...message,
-              read: true,
-            };
-          });
-        });
+        setMessages((prevMessages) =>
+          prevMessages.map((message) => ({
+            ...message,
+            read: true,
+          }))
+        );
       }
-    });
+    };
 
-    // receipent typing
-    socket.on("started-typing", (data) => {
-      const selctedChat = store.getState().users.selectedChat;
-      if (data.chat === selctedChat._id && data.sender !== user._id) {
-        setIsReceipentTyping(true);
+    socket.on("unread-messages-cleared", handleUnreadMessagesCleared);
+
+    const handleTyping = (data) => {
+      const selectedChat = store.getState().users.selectedChat;
+      if (data.chat === selectedChat._id && data.sender !== user._id) {
+        setIsRecipientTyping(true);
       }
       setTimeout(() => {
-        setIsReceipentTyping(false);
+        setIsRecipientTyping(false);
       }, 1500);
-    });
+    };
+
+    socket.on("started-typing", handleTyping);
+
+    return () => {
+      socket.off("receive-message", handleReceiveMessage);
+      socket.off("unread-messages-cleared", handleUnreadMessagesCleared);
+      socket.off("started-typing", handleTyping);
+    };
   }, [selectedChat]);
 
   useEffect(() => {
-    // always scroll to bottom for messages id
     const messagesContainer = document.getElementById("messages");
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }, [messages, isReceipentTyping]);
+  }, [messages, isRecipientTyping]);
 
   const onUploadImageClick = (e) => {
     const file = e.target.files[0];
-    const reader = new FileReader(file);
+    const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onloadend = async () => {
       sendNewMessage(reader.result);
@@ -185,7 +190,6 @@ function ChatArea({ socket }) {
 
   return (
     <div className="bg-white h-[82vh] border rounded-2xl w-full flex flex-col justify-between p-5">
-      {/* 1st part receipent user */}
       <div>
         <div className="flex gap-5 items-center mb-2">
           {receipentUser.profilePic && (
@@ -207,18 +211,20 @@ function ChatArea({ socket }) {
         <hr />
       </div>
 
-      {/* 2nd part chat messages */}
       <div className="h-[55vh] overflow-y-scroll p-5" id="messages">
         <div className="flex flex-col gap-2">
           {messages.map((message, index) => {
-            const isCurrentUserIsSender = message.sender === user._id;
+            const isCurrentUserSender = message.sender === user._id;
             return (
-              <div className={`flex ${isCurrentUserIsSender && "justify-end"}`}>
+              <div
+                key={index}
+                className={`flex ${isCurrentUserSender ? "justify-end" : ""}`}
+              >
                 <div className="flex flex-col gap-1">
                   {message.text && (
                     <h3
                       className={`${
-                        isCurrentUserIsSender
+                        isCurrentUserSender
                           ? "bg-primary text-white rounded-bl-none"
                           : "bg-gray-300 text-primary rounded-tr-none"
                       } p-2 rounded-xl`}
@@ -234,19 +240,18 @@ function ChatArea({ socket }) {
                     />
                   )}
                   <h1 className="text-gray-500 text-sm">
-                    {getDateInRegualarFormat(message.createdAt)}
+                    {getDateInRegularFormat(message.createdAt)}
                   </h1>
                 </div>
-                {isCurrentUserIsSender && message.read && (
+                {isCurrentUserSender && message.read && (
                   <div className="p-2">
-                    {receipentUser.profilePic && (
+                    {receipentUser.profilePic ? (
                       <img
                         src={receipentUser.profilePic}
                         alt="profile pic"
                         className="w-4 h-4 rounded-full"
                       />
-                    )}
-                    {!receipentUser.profilePic && (
+                    ) : (
                       <div className="bg-gray-400 rounded-full h-4 w-4 flex items-center justify-center relative">
                         <h1 className="uppercase text-sm font-semibold text-white">
                           {receipentUser.firstName[0]}
@@ -258,17 +263,15 @@ function ChatArea({ socket }) {
               </div>
             );
           })}
-          {isReceipentTyping && (
+          {isRecipientTyping && (
             <div className="pb-10">
-              <h1 className="bg-blue-100 text-primary  p-2 rounded-xl w-max">
+              <h1 className="bg-blue-100 text-primary p-2 rounded-xl w-max">
                 typing...
               </h1>
             </div>
           )}
         </div>
       </div>
-
-      {/* 3rd part chat input */}
 
       <div className="h-18 rounded-xl border-gray-300 shadow border flex justify-between p-2 items-center relative">
         {showEmojiPicker && (
@@ -283,8 +286,8 @@ function ChatArea({ socket }) {
         )}
 
         <div className="flex gap-2 text-xl">
-          <label for="file">
-            <i class="ri-link cursor-pointer text-xl" typeof="file"></i>
+          <label htmlFor="file">
+            <i className="ri-link cursor-pointer text-xl" />
             <input
               type="file"
               id="file"
@@ -296,9 +299,9 @@ function ChatArea({ socket }) {
             />
           </label>
           <i
-            class="ri-emotion-line cursor-pointer text-xl"
+            className="ri-emotion-line cursor-pointer text-xl"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          ></i>
+          />
         </div>
 
         <input
@@ -319,7 +322,7 @@ function ChatArea({ socket }) {
           className="bg-primary text-white py-1 px-5 rounded h-max"
           onClick={() => sendNewMessage("")}
         >
-          <i className="ri-send-plane-2-line text-white"></i>
+          <i className="ri-send-plane-2-line text-white" />
         </button>
       </div>
     </div>

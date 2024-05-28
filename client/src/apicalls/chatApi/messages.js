@@ -6,6 +6,7 @@ export const SendMessage = async (message) => {
       "/api/messages/new-message",
       message
     );
+    console.log(message);
     return response.data;
   } catch (error) {
     throw error;
