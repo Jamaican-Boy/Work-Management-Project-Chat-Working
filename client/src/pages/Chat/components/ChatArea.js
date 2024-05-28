@@ -23,14 +23,14 @@ function ChatArea({ socket }) {
 
   const sendNewMessage = async (image) => {
     try {
-      const createdAt = moment().format("DD-MM-YYYY hh:mm:ss"); // Get current time
+      // Remove the createdAt field from messageData
       const messageData = {
         chat: selectedChat._id,
         sender: user._id,
         text: newMessage,
         image,
-        createdAt, // Include createdAt in the message data
       };
+  
       // send message to server using socket
       socket.emit("send-message", {
         ...messageData,
