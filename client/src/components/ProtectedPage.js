@@ -99,13 +99,16 @@ function ProtectedPage({ children }) {
                 shape="square"
                 size="large"
                 icon={
-                  <i class="ri-chat-3-line text-white rounded-full"></i>
+                  <i className="ri-chat-3-line text-white rounded-full"></i>
                 }
-                onClick={() => navigate("/chat")}
+                onClick={() => {
+                  navigate("/chat");
+                  window.location.reload();
+                }}
               />
             </Badge>
             {/* Adding space between icons */}
-            <span style={{ marginRight: '10px' }}></span>
+            <span style={{ marginRight: "10px" }}></span>
             <Badge
               count={
                 notifications.filter((notification) => !notification.read)
