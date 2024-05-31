@@ -31,6 +31,7 @@ function Chat() {
           searchKey={searchKey}
           socket={socket}
           onlineUsers={onlineUsers}
+          setSearchKey={setSearchKey}
         />
       </div>
 

@@ -30,17 +30,17 @@ function ChatArea({ socket }) {
         text: newMessage,
         image,
       };
-  
+
       // send message to server using socket
       socket.emit("send-message", {
         ...messageData,
         members: selectedChat.members.map((mem) => mem._id),
         read: false,
       });
-  
+
       // send message to server to save in db
       const response = await SendMessage(messageData);
-  
+
       if (response.success) {
         // Update the time of the sent message in the local state
         setMessages([...messages, { ...messageData, _id: response.data._id }]);
@@ -52,8 +52,6 @@ function ChatArea({ socket }) {
       message.error(error.message);
     }
   };
-  
-  
 
   const getMessages = async () => {
     try {

@@ -7,7 +7,7 @@ import moment from "moment";
 import store from "../../../redux/store";
 import { message } from "antd";
 
-function UsersList({ searchKey, socket, onlineUsers }) {
+function UsersList({ searchKey, socket, onlineUsers, setSearchKey }) {
   const { allUsers, allChats, user, selectedChat } = useSelector(
     (state) => state.users
   );
@@ -23,6 +23,7 @@ function UsersList({ searchKey, socket, onlineUsers }) {
         const updatedChats = [...allChats, newChat];
         dispatch(SetAllChats(updatedChats));
         dispatch(SetSelectedChat(newChat));
+        setSearchKey("");
       } else {
         message.error(response.message);
       }

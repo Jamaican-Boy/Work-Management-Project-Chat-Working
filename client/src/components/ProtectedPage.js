@@ -15,6 +15,9 @@ import { Avatar, Badge } from "antd";
 import Notifications from "./Notifications";
 import { GetAllChats } from "../apicalls/chatApi/chats";
 import { GetAllUsers } from "../apicalls/chatApi/users";
+import { io } from "socket.io-client";
+
+const socket = io(process.env.BASE_URL_DEV);
 
 function ProtectedPage({ children }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -131,6 +134,7 @@ function ProtectedPage({ children }) {
             <i
               className="ri-logout-box-r-line ml-10 text-primary"
               onClick={() => {
+                socket.emit("went-offline", user._id)
                 localStorage.removeItem("token");
                 navigate("/login");
               }}
