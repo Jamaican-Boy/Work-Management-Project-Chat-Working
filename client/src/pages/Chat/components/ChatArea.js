@@ -263,9 +263,9 @@ function ChatArea({ socket }) {
           })}
           {isRecipientTyping && (
             <div className="pb-10">
-              <h1 className="bg-blue-100 text-primary p-2 rounded-xl w-max">
+              <h4 className="bg-blue-100 text-primary p-2 rounded-xl w-max">
                 typing...
-              </h1>
+              </h4>
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@ function UsersList({ searchKey, socket, onlineUsers, setSearchKey }) {
     (state) => state.users
   );
   const dispatch = useDispatch();
+  
   const createNewChat = async (receipentUserId) => {
     try {
       dispatch(SetLoading(true));
@@ -206,7 +207,7 @@ function UsersList({ searchKey, socket, onlineUsers, setSearchKey }) {
               {!allChats.find((chat) =>
                 chat.members.map((mem) => mem._id).includes(userObj._id)
               ) && (
-                <button className="border-primary border text-primary bg-white p-1 rounded">
+                <button className="border-primary border text-primary bg-white p-1 rounded" onClick={getData}>
                   Create Chat
                 </button>
               )}
